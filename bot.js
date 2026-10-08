@@ -1,10 +1,13 @@
 const express = require('express');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const P = require('pino');
-const qrcode = require('qrcode-terminal');
 
 const app = express();
 let sock;
+
+// 👇👇👇 CAMBIA ESTE NUMERO POR TU NUMERO CON LADA 👇👇👇
+// Ejemplo: 5218134567890 (52 + 1 + tu numero de 10 digitos)
+const TU_NUMERO = "5210000000000";
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth');
@@ -15,13 +18,26 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
+    // Si no está registrado, pide código de vinculación
+    if (!sock.authState.creds.registered) {
+        setTimeout(async () => {
+            try {
+                // Limpia el numero, solo digitos
+                const num = TU_NUMERO.replace(/[^0-9]/g, '');
+                const code = await sock.requestPairingCode(num);
+                console.log('================================');
+                console.log(` TU CODIGO DE VINCULACION ES: ${code} `);
+                console.log('================================');
+                console.log(` Ve a WhatsApp > Dispositivos vinculados > Vincular con numero de telefono`);
+                console.log(` Y escribe el codigo: ${code}`);
+            } catch (e) {
+                console.log('Error pidiendo codigo:', e.message);
+            }
+        }, 3000);
+    }
 
-        if(qr) {
-            console.log('--- ESCANEA ESTE QR ---');
-            qrcode.generate(qr, { small: true });
-        }
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect } = update;
 
         if(connection === 'open') {
             console.log('✅ WhatsApp Conectado!');
@@ -36,7 +52,7 @@ async function startBot() {
 }
 startBot();
 
-app.get('/', (req,res) => res.send('Bot Solin Activo - Ve a Logs para QR. Luego usa /check?number=521...'));
+app.get('/', (req,res) => res.send('Bot Solin Activo - Ve a Logs para ver tu CODIGO. Luego usa /check?number=521...'));
 
 app.get('/check', async (req,res) => {
     const number = req.query.number;
