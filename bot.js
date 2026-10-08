@@ -1,55 +1,44 @@
 const express = require('express');
+const fs = require('fs');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const P = require('pino');
 const app = express();
 
+// BORRA SESION VIEJA SI EXISTE
+if (fs.existsSync('auth')) { fs.rmSync('auth', {recursive: true, force: true}); console.log('auth vieja borrada'); }
+if (fs.existsSync('auth_info_baileys')) { fs.rmSync('auth_info_baileys', {recursive: true, force: true}); }
+
 async function startBot(){
- console.log('Iniciando bot...');
- const { state, saveCreds } = await useMultiFileAuthState('auth');
+ console.log('=== INICIANDO BOT LIMPIO ===');
+ const { state, saveCreds } = await useMultiFileAuthState('auth_new');
  const sock = makeWASocket({
    auth: state,
    logger: P({level:'silent'}),
-   browser: ['SOLIN','Chrome','1.0'],
-   printQRInTerminal: false
+   browser: ['SOLIN','Chrome','1.0']
  });
  sock.ev.on('creds.update', saveCreds);
 
  sock.ev.on('connection.update', async (u)=>{
-   console.log('Connection:', u.connection);
-   if(u.qr) console.log('QR generado, ignorando...');
-   if(u.connection === 'open'){
-     console.log('✅ CONECTADO EXITOSAMENTE');
-   }
+   console.log('Estado:', u.connection);
+   if(u.connection === 'open'){ console.log('✅ CONECTADO EXITOSAMENTE'); }
    if(u.connection === 'close'){
-     let reason = u.lastDisconnect?.error?.output?.statusCode;
-     console.log('Cerrado:', u.lastDisconnect?.error?.message);
-     if(reason !== DisconnectReason.loggedOut) {
-       console.log('Reintentando en 5s...');
-       setTimeout(startBot, 5000);
-     }
+     console.log('Cerrado, reintentando...');
+     let code = u.lastDisconnect?.error?.output?.statusCode;
+     if(code !== DisconnectReason.loggedOut) setTimeout(startBot, 3000);
    }
  });
 
  if(!state.creds.registered){
-   await new Promise(r=>setTimeout(r, 3000));
+   await new Promise(r=>setTimeout(r, 4000));
    try{
-     const num = '5218141407449';
-     let code = await sock.requestPairingCode(num);
+     console.log('Pidiendo codigo para 5218141407449...');
+     let code = await sock.requestPairingCode('5218141407449');
      console.log('============================');
-     console.log('CODIGO: ' + code);
+     console.log('TU CODIGO NUEVO ES: ' + code);
      console.log('============================');
-   }catch(e){ 
-     console.log('Error codigo: ' + e.message);
-     console.log('Reintentando codigo en 10s...');
-     setTimeout(async()=>{
-       try{
-         let code = await sock.requestPairingCode('5218141407449');
-         console.log('CODIGO REINTENTO: ' + code);
-       }catch(e2){ console.log('Fallo 2do intento: ' + e2.message) }
-     }, 10000);
-   }
+   }catch(e){ console.log('Error pidiendo codigo: ' + e); }
  }
 }
 startBot();
-app.get('/',(req,res)=>res.send('BOT ON'));
-app.listen(process.env.PORT||10000,()=>console.log('Web en puerto 10000'));
+app.get('/',(req,res)=>res.send('OK'));
+app.listen(process.env.PORT||10000,()=>console.log('Web ON'));
