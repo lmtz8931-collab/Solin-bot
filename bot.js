@@ -7,7 +7,7 @@ let sock;
 
 // 👇👇👇 CAMBIA ESTE NUMERO POR TU NUMERO CON LADA 👇👇👇
 // Ejemplo: 5218134567890 (52 + 1 + tu numero de 10 digitos)
-const TU_NUMERO = "5218141407449";
+const TU_NUMERO = "528141407448";
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth');
