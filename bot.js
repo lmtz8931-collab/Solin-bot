@@ -8,7 +8,8 @@ let sock;
 // 👇👇👇 CAMBIA ESTE NUMERO POR TU NUMERO CON LADA 👇👇👇
 // Ejemplo: 5218134567890 (52 + 1 + tu numero de 10 digitos)
 const TU_NUMERO = "528141407448";
-
+const fs = require('fs');
+if (fs.existsSync('./auth') && !fs.existsSync('./auth/creds.json')) { /* limpia */ }
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth');
     sock = makeWASocket({
