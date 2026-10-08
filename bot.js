@@ -32,7 +32,7 @@ async function startBot(){
    await new Promise(r=>setTimeout(r, 4000));
    try{
      console.log('Pidiendo codigo para 5218141407449...');
-     let code = await sock.requestPairingCode('5218141407449');
+     let code = await sock.requestPairingCode('528141407449');
      console.log('============================');
      console.log('TU CODIGO NUEVO ES: ' + code);
      console.log('============================');
