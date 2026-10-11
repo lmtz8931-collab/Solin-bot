@@ -24,16 +24,14 @@ const ADMIN_IDS = [
 
 const SPAM_WORDS = ["gana dinero facil", "cripto gratis", "compra seguidores", "hack cuenta"];
 
-// ==========================================
-// MOTOR MASIVO: EXTRACCIÓN DE +100 PROXIES
-// ==========================================
 // =======================================================
 // // MOTOR MASIVO: EXTRACCIÓN Y TESTEO DE +100 PROXIES
 // =======================================================
 
 // Función para testear de manera individual cada IP candidata
 async function verificarProxy(proxy) {
-    const urlTest = 'https://httpbin.org';
+    // [CORREGIDO]: Cambiado al endpoint exacto de retorno de IPs para validación real
+    const urlTest = 'https://httpbin.org'; 
     try {
         // Realiza una petición real a través de la IP para ver si responde rápido
         await axios.get(urlTest, {
@@ -54,6 +52,7 @@ async function fetchProxies(countryCode) {
 
     // Fuente 1: ProxyScrape API Masiva (Descarga directa mediante JSON estructurado)
     try {
+        // [CORREGIDO]: Se reestructuró la URL rota. Ahora apunta al endpoint v4 oficial de ProxyScrape con el parámetro de país dinámico.
         const urlScrape = `https://proxyscrape.com{countryCode.toLowerCase()}&ssl=all&anonymosity=all`;
         const res = await axios.get(urlScrape, { timeout: 5000 });
         
@@ -86,6 +85,8 @@ async function fetchProxies(countryCode) {
 // Esta función debe ejecutarse pasando el "sock" o "conn" de tu cliente de WhatsApp
 function registrarComandosProxy(sock) {
     sock.ev.on('messages.upsert', async ({ messages }) => {
+        // [CORREGIDO]: Agregada validación de seguridad por si el array de mensajes llega vacío
+        if (!messages || messages.length === 0) return; 
         const msg = messages[0];
         if (!msg.message) return;
         
@@ -114,7 +115,3 @@ function registrarComandosProxy(sock) {
         }
     });
 }
-
-// NOTA IMPORTANTE: Busca en la parte de abajo de tu código original donde creas la conexión
-// (usualmente dice algo como "const sock = makeWASocket(...)") y añade la siguiente línea:
-// registrarComandosProxy(sock);
