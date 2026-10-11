@@ -31,17 +31,17 @@ const SPAM_WORDS = ["gana dinero facil", "cripto gratis", "compra seguidores", "
 // // MOTOR MASIVO: EXTRACCIÓN Y TESTEO DE +100 PROXIES
 // =======================================================
 
-// Función para testear de manera individual e instantánea cada IP de la lista
+// Función para testear de manera individual cada IP candidata
 async function verificarProxy(proxy) {
     const urlTest = 'https://httpbin.org';
     try {
-        // Ejecuta una petición real usando axios configurando la IP candidata
+        // Realiza una petición real a través de la IP para ver si responde rápido
         await axios.get(urlTest, {
             proxy: {
                 host: proxy.ip,
                 port: parseInt(proxy.port)
             },
-            timeout: 3000 // Si el proxy tarda más de 3 segundos en responder, se ignora
+            timeout: 3000 // Si el proxy tarda más de 3 segundos en conectar, se descarta
         });
         return { ...proxy, activo: true };
     } catch (e) {
@@ -74,45 +74,47 @@ async function fetchProxies(countryCode) {
     const promesasTesteo = combinedProxies.map(p => verificarProxy(p));
     const resultados = await Promise.all(promesasTesteo);
 
-    // Filtramos para retornar únicamente los proxies que sí respondieron correctamente
+    // Filtramos para retornar únicamente los proxies que sí están 100% en línea
     const proxiesActivos = resultados.filter(p => p.activo);
     return proxiesActivos;
 }
 
-
 // =======================================================
-// // LÓGICA DEL COMANDO DE WHATSAPP (/proxy usa)
+// // INICIALIZACIÓN DE ESCUCHA DE COMANDOS (BAILEYS)
 // =======================================================
 
-// Nota: Asegúrate de adaptar esta estructura a cómo maneja tu bot los mensajes entrantes.
-// Este es el formato estándar usado habitualmente con la librería Baileys:
+// Esta función debe ejecutarse pasando el "sock" o "conn" de tu cliente de WhatsApp
+function registrarComandosProxy(sock) {
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        const msg = messages[0];
+        if (!msg.message) return;
+        
+        const fromMe = msg.key.fromMe;
+        const conversation = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+        const from = msg.key.remoteJid;
 
-/*
-sock.ev.on('messages.upsert', async ({ messages }) => {
-    const msg = messages[0];
-    if (!msg.message) return;
-    
-    const fromMe = msg.key.fromMe;
-    const conversation = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
-    const from = msg.key.remoteJid;
+        // Detecta si el mensaje empieza con /proxy
+        if (!fromMe && conversation.toLowerCase().startsWith('/proxy')) {
+            const args = conversation.split(' ');
+            const country = args[1] || 'us'; // Si el usuario escribe solo "/proxy", usa 'us' por defecto
 
-    if (!fromMe && conversation.toLowerCase().startsWith('/proxy')) {
-        const args = conversation.split(' ');
-        const country = args[1] || 'us'; // Si el usuario no pone país, busca 'us' por defecto
+            await sock.sendMessage(from, { text: `🔍 Buscando y testeando proxys activos para [${country.toUpperCase()}]... Por favor espera.` }, { quoted: msg });
 
-        await sock.sendMessage(from, { text: `🔍 Buscando y testeando proxys activos para [${country.toUpperCase()}]... Por favor espera.` }, { quoted: msg });
+            const listaActivos = await fetchProxies(country);
 
-        const listaActivos = await fetchProxies(country);
-
-        if (listaActivos.length > 0) {
-            // Tomamos el primer proxy verificado que esté 100% activo
-            const mejorProxy = listaActivos[0];
-            const textoRespuesta = `✅ *Proxy Activo Encontrado [${country.toUpperCase()}]* \n\n➔ *IP:* ${mejorProxy.ip}\n➔ *Puerto:* ${mejorProxy.port}\n➔ *Formato:* ${mejorProxy.ip}:${mejorProxy.port}\n\n_Configúralo en tu navegador para empezar a navegar de forma segura._`;
-            
-            await sock.sendMessage(from, { text: textoRespuesta }, { quoted: msg });
-        } else {
-            await sock.sendMessage(from, { text: `❌ No se encontraron proxys activos en este momento para [${country.toUpperCase()}]. Intenta más tarde.` }, { quoted: msg });
+            if (listaActivos.length > 0) {
+                // Tomamos el primer proxy verificado que responda rápido
+                const mejorProxy = listaActivos[0];
+                const textoRespuesta = `✅ *Proxy Activo Encontrado [${country.toUpperCase()}]* \n\n➔ *IP:* ${mejorProxy.ip}\n➔ *Puerto:* ${mejorProxy.port}\n➔ *Formato:* ${mejorProxy.ip}:${mejorProxy.port}\n\n_Cópialo y configúralo en tu navegador para navegar._`;
+                
+                await sock.sendMessage(from, { text: textoRespuesta }, { quoted: msg });
+            } else {
+                await sock.sendMessage(from, { text: `❌ No se encontraron proxys activos en este momento para [${country.toUpperCase()}]. Intenta más tarde.` }, { quoted: msg });
+            }
         }
-    }
-});
-*/
+    });
+}
+
+// NOTA IMPORTANTE: Busca en la parte de abajo de tu código original donde creas la conexión
+// (usualmente dice algo como "const sock = makeWASocket(...)") y añade la siguiente línea:
+// registrarComandosProxy(sock);
