@@ -192,3 +192,15 @@ async function startBot() {
 
 // Iniciar proceso del Bot
 startBot().catch(err => console.error("Error crítico de inicialización:", err));
+
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 10000;
+
+app.get('/', (req, res) => {
+  res.send('Solin Bot está funcionando en Render.');
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Puerto ${PORT} abierto correctamente.`);
+});
