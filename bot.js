@@ -19,9 +19,12 @@ const BOT_NUMBER = "528141407448";
 const ADMIN_IDS = [
     "525532858511@s.whatsapp.net", 
     "525575704482@s.whatsapp.net", 
+    "526691525030@s.whatsapp.net", 
+    "528777890676@s.whatsapp.net", 
+    "524891114404@s.whatsapp.net", 
     "527777039845@s.whatsapp.net", 
-    "528141407448@s.whatsapp.net",  // Administrador y Bot (Formato MX)
-    "528141407449@s.whatsapp.net"   // Administrador Nuevo (Formato MX)
+    "528141407448@s.whatsapp.net",
+    "528141407449@s.whatsapp.net"
 ];
 
 const SPAM_WORDS = ["gana dinero facil", "cripto gratis", "compra seguidores", "hack cuenta"];
@@ -98,7 +101,7 @@ async function obtenerProxySeguro(country = 'us') {
         const test = await verificarProxy(proxy);
         if (test.activo) return proxy;
     }
-    return lista;
+    return lista[0]; // Retorna el primero si la verificación masiva no halla activos rápidos
 }
 
 // =======================================================
@@ -138,7 +141,7 @@ app.get('/rotar', async (req, res) => {
 function registrarComandosProxy(sock) {
     sock.ev.on('messages.upsert', async ({ messages }) => {
         if (!messages || messages.length === 0) return; 
-        const msg = messages[0]; // Corrección de índice nativo para Baileys
+        const msg = messages[0]; 
         if (!msg.message) return;
         
         const fromMe = msg.key.fromMe;
@@ -196,7 +199,7 @@ function registrarComandosProxy(sock) {
             }
 
             const args = conversation.split(' ');
-            const country = args[1] || 'us'; // Corrección de lectura de argumentos de país
+            const country = args[1] || 'us'; 
 
             await sock.sendMessage(from, { text: "🔍 Buscando un proxy rápido para [" + country.toUpperCase() + "] en múltiples fuentes y generando tu enlace rotativo seguro..." }, { quoted: msg });
 
@@ -249,3 +252,5 @@ async function connectToWhatsApp() {
 
     sock.ev.on('creds.update', saveCreds);
 
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect } = update;
