@@ -12,17 +12,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ==========================================
-// CONFIGURACIÓN GLOBAL (ADMINISTRADORES)
+// CONFIGURACIÓN GLOBAL (ADMINISTRADORES EN LÍNEA)
 // ==========================================
 const BOT_NUMBER = "528141407448"; 
 
 const ADMIN_IDS = [
     "525532858511@s.whatsapp.net", 
     "525575704482@s.whatsapp.net", 
-    "526691525030@s.whatsapp.net", 
-    "528777890676@s.whatsapp.net", 
-    "524891114404@s.whatsapp.net", 
-    "527777039845@s.whatsapp.net", 
+    "527777039845@s.whatsapp.net",
     "528141407448@s.whatsapp.net",
     "528141407449@s.whatsapp.net"
 ];
@@ -68,8 +65,12 @@ async function fetchProxies(countryCode) {
                 lineas.forEach(linea => {
                     const limpio = linea.trim();
                     if (limpio.includes(':')) {
-                        const [ip, port] = limpio.split(':');
-                        combinedProxies.push({ ip, port: parseInt(port), protocol: 'http' });
+                        const partes = limpio.split(':');
+                        const ip = partes[0];
+                        const port = partes[1];
+                        if(ip && port && !isNaN(port)) {
+                            combinedProxies.push({ ip, port: parseInt(port), protocol: 'http' });
+                        }
                     }
                 });
             }
@@ -101,7 +102,7 @@ async function obtenerProxySeguro(country = 'us') {
         const test = await verificarProxy(proxy);
         if (test.activo) return proxy;
     }
-    return lista[0]; // Retorna el primero si la verificación masiva no halla activos rápidos
+    return lista[0]; 
 }
 
 // =======================================================
@@ -142,7 +143,7 @@ function registrarComandosProxy(sock) {
     sock.ev.on('messages.upsert', async ({ messages }) => {
         if (!messages || messages.length === 0) return; 
         const msg = messages[0]; 
-        if (!msg.message) return;
+        if (!msg || !msg.message) return;
         
         const fromMe = msg.key.fromMe;
         const conversation = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
@@ -174,8 +175,8 @@ function registrarComandosProxy(sock) {
 
                         const idLimpio = remitente.split('@')[0];
                         const mensajeAdvertencia = `⚠️ *¡ADVERTENCIA DE SEGURIDAD!* ⚠️\n\n` +
-                                                   `El usuario @${idLimpio} ha intentado hacer spam o enviar un link no autorizado de otro grupo.\n\n` +
-                                                   `_El mensaje ha sido eliminado de inmediato. Próxima infracción causará una expulsión definitiva del grupo._`;
+                                                   `El usuario @${idLimpio} ha intentado hacer spam o enviar un link no autorizado.\n\n` +
+                                                   `_El mensaje ha sido eliminado de inmediato._`;
 
                         await sock.sendMessage(from, { 
                             text: mensajeAdvertencia, 
@@ -183,7 +184,7 @@ function registrarComandosProxy(sock) {
                         });
 
                     } catch (err) {
-                        console.log("[Anti-Spam] Error al moderar. Asegúrate de que Solín sea Administrador en este grupo.");
+                        console.log("[Anti-Spam] Error al moderar. Asegúrate de que Solín sea Administrador.");
                     }
                 }
                 return; 
@@ -201,23 +202,23 @@ function registrarComandosProxy(sock) {
             const args = conversation.split(' ');
             const country = args[1] || 'us'; 
 
-            await sock.sendMessage(from, { text: "🔍 Buscando un proxy rápido para [" + country.toUpperCase() + "] en múltiples fuentes y generando tu enlace rotativo seguro..." }, { quoted: msg });
+            await sock.sendMessage(from, { text: "🔍 Buscando un proxy rápido para [" + country.toUpperCase() + "] en múltiples fuentes..." }, { quoted: msg });
 
             const mejorProxy = await obtenerProxySeguro(country);
 
             if (mejorProxy && mejorProxy.ip) {
-                const urlRender = process.env.RENDER_EXTERNAL_URL || "https://" + process.env.RENDER_SERVICE_NAME + ".onrender.com";
+                const urlRender = process.env.RENDER_EXTERNAL_URL || "https://" + (process.env.RENDER_SERVICE_NAME || "solin-bot") + ".onrender.com";
                 
                 const textoRespuesta = "✅ *Proxy Individual Autorizado:* \n" +
                                       "➔ `" + mejorProxy.ip + ":" + mejorProxy.port + "`\n\n" +
                                       "🔄 *Tu Link Rotador Automático:* \n" +
-                                      "Usa este enlace en tus scripts. Cambiará de IP dinámicamente:\n\n" +
+                                      "Usa este enlace dinámico en tus herramientas:\n\n" +
                                       "➔ `" + urlRender + "/rotar?country=" + country + "&url=https://ipify.org`\n\n" +
                                       "_Acceso exclusivo del equipo de administración._";
                 
                 await sock.sendMessage(from, { text: textoRespuesta }, { quoted: msg });
             } else {
-                await sock.sendMessage(from, { text: "❌ No se pudo extraer o estabilizar ningún proxy seguro para [" + country.toUpperCase() + "] en este intento." }, { quoted: msg });
+                await sock.sendMessage(from, { text: "❌ No se pudo extraer o estabilizar ningún proxy seguro para [" + country.toUpperCase() + "]." }, { quoted: msg });
             }
         }
     });
@@ -254,3 +255,5 @@ async function connectToWhatsApp() {
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
+        
+        if (connection === 'close') {
