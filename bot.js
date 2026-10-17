@@ -213,7 +213,7 @@ function registrarComandosProxy(sock) {
                                       "➔ `" + mejorProxy.ip + ":" + mejorProxy.port + "`\n\n" +
                                       "🔄 *Tu Link Rotador Automático:* \n" +
                                       "Usa este enlace dinámico en tus herramientas:\n\n" +
-                                      "➔ `" + urlRender + "/rotar?country=" + country + "&url=https://ipify.org`\n\n" +
+                                      "➔ `" + urlRender + "/rotar?country=" + country + "&url=https://api.ipify.org`\n\n" +
                                       "_Acceso exclusivo del equipo de administración._";
                 
                 await sock.sendMessage(from, { text: textoRespuesta }, { quoted: msg });
