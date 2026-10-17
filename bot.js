@@ -20,8 +20,8 @@ const ADMIN_IDS = [
     "525532858511@s.whatsapp.net", 
     "525575704482@s.whatsapp.net", 
     "527777039845@s.whatsapp.net", 
-    "528141407448@s.whatsapp.net",  // Administrador y Bot (Formato MX corregido)
-    "528141407449@s.whatsapp.net"   // Administrador Nuevo (Formato MX corregido)
+    "528141407448@s.whatsapp.net",  // Administrador y Bot (Formato MX)
+    "528141407449@s.whatsapp.net"   // Administrador Nuevo (Formato MX)
 ];
 
 const SPAM_WORDS = ["gana dinero facil", "cripto gratis", "compra seguidores", "hack cuenta"];
@@ -49,7 +49,6 @@ async function verificarProxy(proxy) {
 async function fetchProxies(countryCode) {
     let combinedProxies = [];
     
-    // Lista de fuentes públicas estables que Solín raspa en paralelo
     const fuentes = [
         "https://proxyscrape.com" + countryCode.toLowerCase() + "&ssl=all&anonymity=all",
         "https://githubusercontent.com",
@@ -76,7 +75,6 @@ async function fetchProxies(countryCode) {
         console.error("Error en recolección:", e.message);
     }
 
-    // Filtro para eliminar IPs duplicadas de las tres fuentes
     const listaUnica = [];
     const ipsRegistradas = new Set();
     
@@ -94,14 +92,13 @@ async function obtenerProxySeguro(country = 'us') {
     const lista = await fetchProxies(country);
     if (lista.length === 0) return null;
     
-    // Barajamos para asegurar una rotación real de IPs
     const aleatorios = lista.sort(() => 0.5 - Math.random()).slice(0, 15);
     
     for (let proxy of aleatorios) {
         const test = await verificarProxy(proxy);
         if (test.activo) return proxy;
     }
-    return lista[0]; // Fallback al primer proxy crudo si el test masivo falla
+    return lista;
 }
 
 // =======================================================
@@ -135,13 +132,13 @@ app.get('/rotar', async (req, res) => {
 });
 
 // =======================================================
-// ESCUCHA DE WHATSAPP: COMANDOS Y FILTRO DE SPAM
+// ESCUCHA DE WHATSAPP: COMANDOS Y MODERACIÓN INTEGRAL
 // =======================================================
 
 function registrarComandosProxy(sock) {
     sock.ev.on('messages.upsert', async ({ messages }) => {
         if (!messages || messages.length === 0) return; 
-        const msg = messages[0]; 
+        const msg = messages[0]; // Corrección de índice nativo para Baileys
         if (!msg.message) return;
         
         const fromMe = msg.key.fromMe;
@@ -149,46 +146,57 @@ function registrarComandosProxy(sock) {
         const from = msg.key.remoteJid;
         const remitente = msg.key.participant || msg.key.remoteJid;
 
-        if (fromMe) return; // Ignorarse a sí mismo para evitar bucles
+        if (fromMe) return; 
 
-        // ---------------------------------------------------
-        // [NUEVO] FUNCIÓN 2: FILTRO ANTI-SPAM DE PALABRAS PROHIBIDAS
-        // ---------------------------------------------------
-        const contieneSpam = SPAM_WORDS.some(palabra => conversation.toLowerCase().includes(palabra));
-        if (contieneSpam) {
-            console.log(`[Anti-Spam] Mensaje bloqueado de ${remitente}: ${conversation}`);
-            
-            // Si el bot es admin del grupo, intenta eliminar el mensaje molesto
-            if (from.endsWith('@g.us')) {
-                try {
-                    await sock.sendMessage(from, { 
-                        delete: { 
-                            remoteJid: from, 
-                            fromMe: false, 
-                            id: msg.key.id, 
-                            participant: remitente 
-                        } 
-                    });
-                } catch (err) {
-                    console.log("[Anti-Spam] No se pudo borrar el mensaje (Solín podría no ser administrador del grupo).");
+        const esAdmin = ADMIN_IDS.includes(remitente);
+
+        // MODERACIÓN ANTI-SPAM (PALABRAS Y LINKS DE GRUPOS)
+        if (!esAdmin) {
+            const contienePalabrasSpam = SPAM_WORDS.some(palabra => conversation.toLowerCase().includes(palabra));
+            const contieneLinkGrupo = conversation.toLowerCase().includes("://whatsapp.com") || conversation.toLowerCase().includes("wa.me/setting");
+
+            if (contienePalabrasSpam || contieneLinkGrupo) {
+                console.log(`[Anti-Spam] Infracción detectada de ${remitente} en el chat.`);
+                
+                if (from.endsWith('@g.us')) {
+                    try {
+                        await sock.sendMessage(from, { 
+                            delete: { 
+                                remoteJid: from, 
+                                fromMe: false, 
+                                id: msg.key.id, 
+                                participant: remitente 
+                            } 
+                        });
+
+                        const idLimpio = remitente.split('@')[0];
+                        const mensajeAdvertencia = `⚠️ *¡ADVERTENCIA DE SEGURIDAD!* ⚠️\n\n` +
+                                                   `El usuario @${idLimpio} ha intentado hacer spam o enviar un link no autorizado de otro grupo.\n\n` +
+                                                   `_El mensaje ha sido eliminado de inmediato. Próxima infracción causará una expulsión definitiva del grupo._`;
+
+                        await sock.sendMessage(from, { 
+                            text: mensajeAdvertencia, 
+                            mentions: [remitente] 
+                        });
+
+                    } catch (err) {
+                        console.log("[Anti-Spam] Error al moderar. Asegúrate de que Solín sea Administrador en este grupo.");
+                    }
                 }
+                return; 
             }
-            return; // Detiene el procesamiento del mensaje malicioso
         }
 
-        // ---------------------------------------------------
-        // FUNCIÓN 1: SISTEMA DE COMANDOS EXCLUSIVOS CON SEGURIDAD
-        // ---------------------------------------------------
+        // SISTEMA DE COMANDOS EXCLUSIVOS CON SEGURIDAD (ADMINS)
         if (conversation.toLowerCase().startsWith('/proxy')) {
             
-            // Filtro estricto para la lista ADMIN_IDS
-            if (!ADMIN_IDS.includes(remitente)) {
+            if (!esAdmin) {
                 console.log("[Seguridad] Acceso denegado al comando /proxy para: " + remitente);
                 return; 
             }
 
             const args = conversation.split(' ');
-            const country = args[1] || 'us'; 
+            const country = args[1] || 'us'; // Corrección de lectura de argumentos de país
 
             await sock.sendMessage(from, { text: "🔍 Buscando un proxy rápido para [" + country.toUpperCase() + "] en múltiples fuentes y generando tu enlace rotativo seguro..." }, { quoted: msg });
 
@@ -213,7 +221,7 @@ function registrarComandosProxy(sock) {
 }
 
 // =======================================================
-// NÚCLEO PRINCIPAL DE CONEXIÓN A WHATSAPP
+// NÚCLEO PRINCIPAL DE CONEXIÓN A WHATSAPP (CON PAIRING CODE)
 // =======================================================
 
 async function connectToWhatsApp() {
@@ -221,29 +229,23 @@ async function connectToWhatsApp() {
 
     const sock = makeWASocket({
         logger: P({ level: 'silent' }),
-        printQRInTerminal: true,
         auth: state,
         browser: Browsers.macOS('Desktop')
     });
 
+    if (!sock.authState.creds.registered) {
+        setTimeout(async () => {
+            try {
+                let codigo = await sock.requestPairingCode(BOT_NUMBER);
+                console.log(`\n==============================================`);
+                console.log(`🔑 TU CÓDIGO DE VINCULACIÓN PARA SOLÍN ES:`);
+                console.log(`👉   ${codigo}   👈`);
+                console.log(`==============================================\n`);
+            } catch (err) {
+                console.error("Error al generar el Pairing Code:", err.message);
+            }
+        }, 3000);
+    }
+
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
-        if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) connectToWhatsApp();
-        } else if (connection === 'open') {
-            console.log('🚀 ¡Solín en línea! Todas las funciones integradas con éxito.');
-        }
-    });
-
-    registrarComandosProxy(sock);
-}
-
-// Iniciar Servidor Web
-app.listen(PORT, () => {
-    console.log(`🌐 Servidor del rotador escuchando en el puerto ${PORT}`);
-});
-
-connectToWhatsApp();
